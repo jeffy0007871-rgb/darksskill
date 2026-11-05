@@ -1,0 +1,37 @@
+name: Build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Get Forge MDK
+        run: |
+          V=$(curl -s https://files.minecraftforge.net/net.minecraftforge.forge/promotions_slim.json | jq -r '.promos["1.21.1-recommended"] // .promos["1.21.1-latest"]')
+          echo "Forge $V"
+          curl -L -o mdk.zip "https://maven.minecraftforge.net/net/minecraftforge/forge/1.21.1-$V/forge-1.21.1-$V-mdk.zip"
+          mkdir mdk
+          unzip -q mdk.zip -d mdk
+      - name: Add mod source
+        run: |
+          unzip -q darkskills-src.zip -d overlay
+          rm -rf mdk/src
+          cp -r overlay/src mdk/src
+          cd mdk
+          sed -i 's/^mod_id=.*/mod_id=darkskills/' gradle.properties
+          sed -i 's/^mod_name=.*/mod_name=Dark Skills/' gradle.properties
+          sed -i 's/^mod_group_id=.*/mod_group_id=com.darkskills/' gradle.properties
+          sed -i 's/^mod_version=.*/mod_version=0.1.0/' gradle.properties
+      - name: Build
+        run: |
+          cd mdk
+          chmod +x gradlew
+          ./gradlew build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: darkskills-jar
+          path: mdk/build/libs/*.jar
